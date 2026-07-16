@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database and Log files
+visiondrive.db
+visiondrive.log
+
+# Media / Outputs
+recordings/
+screenshots/
+*.zip
+
+# Environments
+.env
+venv/
+ENV/
+env/
+
+# IDE files
+.vscode/
+.idea/

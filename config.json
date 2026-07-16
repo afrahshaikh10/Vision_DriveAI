@@ -1,0 +1,23 @@
+{
+    "camera_id": 0,
+    "steering_sensitivity": 1.0,
+    "steering_dead_zone": 5.0,
+    "min_detection_confidence": 0.7,
+    "min_tracking_confidence": 0.7,
+    "smoothing_amount": 5,
+    "fps_limit": 30,
+    "key_bindings": {
+        "accelerate": "up",
+        "brake": "down",
+        "left": "left",
+        "right": "right",
+        "handbrake": "space"
+    },
+    "calibration": {
+        "neutral_angle": 0.0,
+        "max_left_angle": -30.0,
+        "max_right_angle": 30.0,
+        "neutral_distance": 200.0,
+        "calibrated": false
+    }
+}
