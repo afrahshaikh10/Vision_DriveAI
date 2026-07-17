@@ -704,8 +704,8 @@ class VisionDriveAIApp(ctk.CTk):
             # 2. Gameplay Mode Handling
             else:
                 raw_ang, smoothed_ang, steer_state = self.steering_controller.calculate_steering(hands_data)
-                accel, brake, handbrake, gest_info = self.gesture_detector.detect_gestures(hands_data)
-                self.keyboard_controller.update_controls(accel, brake, handbrake, steer_state)
+                accel, brake, handbrake, boost, gest_info = self.gesture_detector.detect_gestures(hands_data)
+                self.keyboard_controller.update_controls(accel, brake, handbrake, boost, steer_state)
                 
                 # Dynamic check if user is currently playing game
                 if self.current_page_name == "drive" and hasattr(self, "current_page_widget"):
@@ -734,18 +734,19 @@ class VisionDriveAIApp(ctk.CTk):
                             driving_coach.speak(speech)
                 
                 for info in gest_info:
-                    if "Fist" in info or "Palm" in info or "Close" in info:
+                    if "Fist" in info or "Palm" in info or "Close" in info or "Thumb" in info:
                          self.log_message(f"GESTURE: {info}")
                 
                 if steer_state != self.keyboard_controller.last_steering_state:
                     self.log_message(f"STEERING: {steer_state} ({int(smoothed_ang)}°)")
-
+ 
                 conf_val = sum(h["score"] for h in hands_data) / len(hands_data) if hands_data else 0.0
                 gest_name = "Neutral"
                 if handbrake: gest_name = "ThumbsDown (HB)"
+                elif boost: gest_name = "ThumbsUp (BST)"
                 elif brake: gest_name = "Open Palm (BRK)"
                 elif accel: gest_name = "Closed Fist (ACC)"
-
+ 
                 with self.frame_lock:
                     self.latest_display_frame = frame_annotated
                     self.latest_telemetry = {
@@ -754,6 +755,7 @@ class VisionDriveAIApp(ctk.CTk):
                         "accelerating": accel,
                         "braking": brake,
                         "handbrake": handbrake,
+                        "boost": boost,
                         "fps": self.camera.fps if self.camera else 0.0,
                         "calibration_overlay": (0, 0.0, ""),
                         "gesture_name": gest_name,

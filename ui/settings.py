@@ -146,6 +146,8 @@ class SettingsPanel(ctk.CTkFrame):
         self.right_key_dropdown = self._create_key_dropdown(scroll_frame, "Steer Right", "right")
         # Handbrake Key
         self.handbrake_key_dropdown = self._create_key_dropdown(scroll_frame, "Handbrake", "handbrake")
+        # Boost Key
+        self.boost_key_dropdown = self._create_key_dropdown(scroll_frame, "Nitro Boost", "boost")
 
         # Initial label update triggers
         self._on_sens_change(self.sens_slider.get())
@@ -195,7 +197,8 @@ class SettingsPanel(ctk.CTkFrame):
         
         # Standard key options
         keys_list = ["up", "down", "left", "right", "space", "w", "s", "a", "d", "shift", "ctrl"]
-        current_binding = self.config_manager.get("key_bindings", {}).get(config_key, "space")
+        default_val = "shift" if config_key == "boost" else "space"
+        current_binding = self.config_manager.get("key_bindings", {}).get(config_key, default_val)
         if current_binding not in keys_list:
             keys_list.append(current_binding)
             
@@ -263,7 +266,8 @@ class SettingsPanel(ctk.CTkFrame):
                 "brake": self.brake_key_dropdown.get(),
                 "left": self.left_key_dropdown.get(),
                 "right": self.right_key_dropdown.get(),
-                "handbrake": self.handbrake_key_dropdown.get()
+                "handbrake": self.handbrake_key_dropdown.get(),
+                "boost": self.boost_key_dropdown.get()
             }
         }
         

@@ -9,9 +9,10 @@ VisionDrive AI is a real-time Computer Vision desktop application that turns you
 - **Asynchronous Dual Hand Tracking**: Fast, real-time skeletal tracking of both hands via MediaPipe.
 - **Dynamic Vector Steering**: Calculates steering angle using the vector connecting your left and right hands.
 - **Gesture Control System**:
-  - 🖐️ **Accelerate**: Open palm on any hand, or raise your right hand.
-  - ✊ **Brake**: Closed fist on any hand, or bring hands close together.
-  - 👎 **Handbrake**: Thumbs-down gesture, or hold a fist for 2 seconds (triggers spacebar).
+  - ✊ **Accelerate**: Closed fist on any hand (simulating steering grip), or raise your right hand.
+  - 👍 **Nitro Boost**: Thumbs-up gesture (triggers Shift key by default) to keep increasing speed up to 140 MPH.
+  - 🖐️ **Brake**: Open palm on any hand (simulating letting go), or bring hands close together.
+  - 👎 **Handbrake**: Thumbs-down gesture (triggers spacebar by default).
 - **Steering Smoothing**: Multi-frame moving average filter to eliminate hand jitters.
 - **Interactive Gaming HUD**:
   - Vector steering wheel overlay that rotates in real-time.

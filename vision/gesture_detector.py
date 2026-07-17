@@ -27,18 +27,20 @@ class GestureDetector:
         self.confidence_threshold = confidence_threshold
         self.neutral_distance = neutral_distance
 
-    def detect_gestures(self, hands_data: List[Dict[str, Any]]) -> Tuple[bool, bool, bool, List[str]]:
+    def detect_gestures(self, hands_data: List[Dict[str, Any]]) -> Tuple[bool, bool, bool, bool, List[str]]:
         """
         Processes hands coordinates to classify gestures.
         Returns:
             - accelerate: bool (Open Palm or Raised Hand)
             - brake: bool (Fist or Hands Close Together)
             - handbrake: bool (Sustained fist > 2s or Thumbs Down)
+            - boost: bool (Thumbs Up)
             - debug_info: List of string labels describing the current hand states
         """
         accelerate = False
         brake = False
         handbrake = False
+        boost = False
         debug_info = []
         
         num_hands = len(hands_data)
@@ -52,11 +54,14 @@ class GestureDetector:
             is_open = self._is_open_palm(landmarks)
             is_fist = self._is_fist(landmarks)
             is_thumbs_down = self._is_thumbs_down(landmarks)
+            is_thumbs_up = self._is_thumbs_up(landmarks)
             
             if is_open:
                 hand_states[label] = "Open Palm"
             elif is_thumbs_down:
                 hand_states[label] = "Thumbs Down"
+            elif is_thumbs_up:
+                hand_states[label] = "Thumbs Up"
             elif is_fist:
                 hand_states[label] = "Fist"
             else:
@@ -107,13 +112,17 @@ class GestureDetector:
         else:
             self.thumbs_down_start_time = None
 
+        # 5. Check Boost / Thumbs Up
+        if any(state == "Thumbs Up" for state in hand_states.values()):
+            boost = True
+            accelerate = True
 
-
-        # Don't accelerate if braking
+        # Don't accelerate or boost if braking
         if brake or handbrake:
             accelerate = False
+            boost = False
 
-        return accelerate, brake, handbrake, debug_info
+        return accelerate, brake, handbrake, boost, debug_info
 
     def _is_open_palm(self, landmarks: List[Tuple[int, int]]) -> bool:
         """Determines if the hand is an open palm (all fingers extended)."""
@@ -188,6 +197,28 @@ class GestureDetector:
         dist_mcp = calculate_distance(landmarks[2], landmarks[5])
         
         return thumb_tip_y > thumb_mcp_y and dist_thumb_tip > dist_mcp * 1.2
+
+    def _is_thumbs_up(self, landmarks: List[Tuple[int, int]]) -> bool:
+        """Detects a thumbs-up gesture (thumb pointing up, other fingers folded)."""
+        # Other fingers must be folded (fist-like)
+        folded_count = 0
+        for finger, indices in FINGER_INDEX_MAP.items():
+            tip, _, pip, _ = indices
+            if landmarks[tip][1] > landmarks[pip][1]:
+                folded_count += 1
+                
+        if folded_count < 3:
+            return False
+            
+        # Thumb TIP (4) Y must be smaller than Thumb MCP (2) Y (pointing upwards)
+        thumb_tip_y = landmarks[4][1]
+        thumb_mcp_y = landmarks[2][1]
+        
+        # Also thumb should be extended (dist from index MCP)
+        dist_thumb_tip = calculate_distance(landmarks[4], landmarks[5])
+        dist_mcp = calculate_distance(landmarks[2], landmarks[5])
+        
+        return thumb_tip_y < thumb_mcp_y and dist_thumb_tip > dist_mcp * 1.2
 
     def _get_hand_center_y(self, landmarks: List[Tuple[int, int]]) -> float:
         """Returns average Y of hand landmarks."""

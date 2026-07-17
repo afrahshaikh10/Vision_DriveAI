@@ -177,6 +177,7 @@ class SettingsScreen(ctk.CTkFrame):
         self.left_key_dropdown = self._create_key_dropdown(right_col, "Steer Left", "left", colors)
         self.right_key_dropdown = self._create_key_dropdown(right_col, "Steer Right", "right", colors)
         self.handbrake_key_dropdown = self._create_key_dropdown(right_col, "Handbrake", "handbrake", colors)
+        self.boost_key_dropdown = self._create_key_dropdown(right_col, "Nitro Boost", "boost", colors)
 
         # 3. Action Buttons
         btn_frame = ctk.CTkFrame(right_col, fg_color="transparent")
@@ -221,7 +222,8 @@ class SettingsScreen(ctk.CTkFrame):
         lbl.pack(side="left")
         
         keys_list = ["up", "down", "left", "right", "space", "w", "s", "a", "d", "shift", "ctrl"]
-        current_binding = self.config_manager.get("key_bindings", {}).get(config_key, "space")
+        default_val = "shift" if config_key == "boost" else "space"
+        current_binding = self.config_manager.get("key_bindings", {}).get(config_key, default_val)
         if current_binding not in keys_list:
             keys_list.append(current_binding)
             
@@ -285,7 +287,8 @@ class SettingsScreen(ctk.CTkFrame):
                 "brake": self.brake_key_dropdown.get(),
                 "left": self.left_key_dropdown.get(),
                 "right": self.right_key_dropdown.get(),
-                "handbrake": self.handbrake_key_dropdown.get()
+                "handbrake": self.handbrake_key_dropdown.get(),
+                "boost": self.boost_key_dropdown.get()
             }
         }
         self.on_save_callback(updated_settings)

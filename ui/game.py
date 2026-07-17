@@ -198,7 +198,7 @@ class RetroRacingGame(ctk.CTkFrame):
                 self.target_speed_mph = 0.0
                 accel_coeff = 0.35 # High deceleration coeff for instant braking
             elif self.keys_pressed["shift"]: # Nitro boost speed up
-                self.target_speed_mph = 120.0
+                self.target_speed_mph = 140.0
                 accel_coeff = 0.15
             elif self.keys_pressed["up"]: # Accelerating
                 self.target_speed_mph = 80.0
@@ -455,10 +455,10 @@ class RetroRacingGame(ctk.CTkFrame):
         rules = [
             ("👐 Neutral Hands", "Steer Straight"),
             ("🔄 Tilt Hands Left/Right", "Steer Vehicle"),
-            ("✊ Closed Fist", "Accelerate (Speed up)"),
+            ("✊ Closed Fist", "Accelerate (80 MPH)"),
+            ("👍 Thumbs Up", "Turbo Boost (140 MPH)"),
             ("🖐 Open Palm", "Brake / Slow Down"),
-            ("👎 Thumbs Down", "Handbrake (Stop Vehicle)"),
-            ("⌨ Shift Key", "Turbo Boost (120 MPH)")
+            ("👎 Thumbs Down", "Handbrake (Stop Vehicle)")
         ]
         
         start_y = 150

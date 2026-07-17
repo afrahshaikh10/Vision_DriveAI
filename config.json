@@ -11,7 +11,8 @@
         "brake": "down",
         "left": "left",
         "right": "right",
-        "handbrake": "space"
+        "handbrake": "space",
+        "boost": "shift"
     },
     "calibration": {
         "neutral_angle": 0.0,

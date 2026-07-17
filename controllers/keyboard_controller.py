@@ -23,7 +23,7 @@ class KeyboardController:
         self.bindings = key_bindings
         logger.info(f"Keyboard bindings updated: {self.bindings}")
 
-    def update_controls(self, accelerate: bool, brake: bool, handbrake: bool, steering_state: str) -> None:
+    def update_controls(self, accelerate: bool, brake: bool, handbrake: bool, boost: bool, steering_state: str) -> None:
         """
         Translates gesture decisions and steering states into keyboard presses/releases.
         """
@@ -33,6 +33,13 @@ class KeyboardController:
             self._press(accel_key)
         else:
             self._release(accel_key)
+
+        # 1b. Handle Boost (Shift key equivalent)
+        boost_key = self._resolve_key(self.bindings.get("boost", "shift"))
+        if boost:
+            self._press(boost_key)
+        else:
+            self._release(boost_key)
 
         # 2. Handle Braking (Down key equivalent)
         brake_key = self._resolve_key(self.bindings.get("brake", "down"))
