@@ -316,6 +316,7 @@ class RetroRacingGame(ctk.CTkFrame):
         self.current_weather = random.choice(self.weather_modes)
         self.brakes_count = 0
         self.was_braking = False
+        self.session_start_time = time.time()
         
         from utils.analytics import analytics_tracker
         analytics_tracker.reset()
@@ -488,9 +489,19 @@ class RetroRacingGame(ctk.CTkFrame):
                     if sp["alpha"] <= 0:
                         self.rain_splashes.remove(sp)
 
-            # 7. Obstacle Spawning & Perspective Lane Movement
+            # 7. Dynamic Progressive Traffic Spawning & Lane Movement
             self.spawn_timer += 1
-            spawn_interval = max(38, int(105 - (self.speed_mph / 2.0)))
+            elapsed_sec = time.time() - getattr(self, "session_start_time", time.time())
+            
+            if elapsed_sec < 5.0:  # Warmup Phase (0-5s): Easy, low density
+                spawn_interval = max(55, int(120 - (self.speed_mph / 2.0)))
+            elif elapsed_sec < 25.0: # Ramping Phase (5-25s): Progressive traffic build-up
+                time_factor = 1.0 + ((elapsed_sec - 5.0) / 15.0)
+                spawn_interval = max(24, int((105 - (self.speed_mph / 2.0)) / time_factor))
+            else: # Extreme Rush Hour Phase (>25s): High density, fast spawns
+                time_factor = min(3.2, 2.33 + ((elapsed_sec - 25.0) / 20.0))
+                spawn_interval = max(16, int((90 - (self.speed_mph / 2.0)) / time_factor))
+
             if self.spawn_timer >= spawn_interval:
                 self.spawn_timer = 0
                 self._spawn_obstacle()
@@ -550,43 +561,63 @@ class RetroRacingGame(ctk.CTkFrame):
         self.after(25, self.game_loop)
 
     def _spawn_obstacle(self) -> None:
+        elapsed_sec = time.time() - getattr(self, "session_start_time", time.time())
         lane_fracs = [0.15, 0.38, 0.62, 0.85]
-        l_frac = random.choice(lane_fracs)
-        self.obstacle_counter += 1
 
-        # Pick vehicle type: 60% Sports Car/SUV, 20% City Bus, 20% Heavy Semi-Truck
-        r_type = random.random()
-        if r_type < 0.20:
-            veh_type = "bus"
-            base_w, base_h = 34, 74
-            speed_off = random.uniform(0.8, 1.8)
-            sprite_obj = self.sprites["bus"]
-        elif r_type < 0.40:
-            veh_type = "truck"
-            base_w, base_h = 36, 84
-            speed_off = random.uniform(0.7, 1.6)
-            sprite_obj = self.sprites["truck"]
-        else:
-            veh_type = "car"
-            base_w, base_h = 30, 48
-            speed_off = random.uniform(1.4, 2.8)
-            sprite_obj = self.sprites["ai_cars"][random.randint(0, len(self.sprites["ai_cars"]) - 1)]
+        # Determine simultaneous wave spawns based on elapsed survival time
+        if elapsed_sec < 6.0:
+            num_spawns = 1
+        elif elapsed_sec < 18.0:
+            num_spawns = 2 if random.random() < 0.25 else 1
+        elif elapsed_sec < 35.0:
+            num_spawns = 2 if random.random() < 0.55 else 1
+        else: # Intense Rush Hour (>35s)
+            r = random.random()
+            if r < 0.22:
+                num_spawns = 3  # 3 cars across 4 lanes (leaves 1 open dodge gap!)
+            elif r < 0.70:
+                num_spawns = 2
+            else:
+                num_spawns = 1
 
-        obs = {
-            "id": self.obstacle_counter,
-            "lane_frac": l_frac,
-            "target_lane_frac": l_frac,
-            "y": 120.0,
-            "base_width": base_w,
-            "base_height": base_h,
-            "speed_offset": speed_off,
-            "veh_type": veh_type,
-            "sprite": sprite_obj,
-            "changing_lane": False
-        }
-        self.obstacles.append(obs)
-        from utils.analytics import analytics_tracker
-        analytics_tracker.log_obstacle_spawn(obs["id"])
+        selected_lanes = random.sample(lane_fracs, k=num_spawns)
+
+        for l_frac in selected_lanes:
+            self.obstacle_counter += 1
+
+            # Pick vehicle type: 60% Sports Car/SUV, 20% City Bus, 20% Heavy Semi-Truck
+            r_type = random.random()
+            if r_type < 0.20:
+                veh_type = "bus"
+                base_w, base_h = 34, 74
+                speed_off = random.uniform(0.8, 1.8)
+                sprite_obj = self.sprites["bus"]
+            elif r_type < 0.40:
+                veh_type = "truck"
+                base_w, base_h = 36, 84
+                speed_off = random.uniform(0.7, 1.6)
+                sprite_obj = self.sprites["truck"]
+            else:
+                veh_type = "car"
+                base_w, base_h = 30, 48
+                speed_off = random.uniform(1.4, 2.8)
+                sprite_obj = self.sprites["ai_cars"][random.randint(0, len(self.sprites["ai_cars"]) - 1)]
+
+            obs = {
+                "id": self.obstacle_counter,
+                "lane_frac": l_frac,
+                "target_lane_frac": l_frac,
+                "y": 120.0,
+                "base_width": base_w,
+                "base_height": base_h,
+                "speed_offset": speed_off,
+                "veh_type": veh_type,
+                "sprite": sprite_obj,
+                "changing_lane": False
+            }
+            self.obstacles.append(obs)
+            from utils.analytics import analytics_tracker
+            analytics_tracker.log_obstacle_spawn(obs["id"])
 
     def _check_collision(self, obs: Dict[str, Any]) -> bool:
         horizon_y = 120.0
