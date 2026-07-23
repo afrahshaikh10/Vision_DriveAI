@@ -199,7 +199,12 @@ class WeatherThemeManager:
             elif p["type"] == "fog":
                 # Draw fog bounds (large soft blocks using canvas stipples if supported, or just light filled circles)
                 # To prevent performance lags, draw fewer large soft ovals
-                canvas.create_oval(x - sz, y - sz, x + sz, y + sz, fill=p["color"], outline="", stipple="gray12")
+                # On Windows, stippling can cause severe GUI lag. Use outline instead.
+                import platform
+                if platform.system() == "Windows":
+                    canvas.create_oval(x - sz, y - sz, x + sz, y + sz, fill="", outline=p["color"], width=1)
+                else:
+                    canvas.create_oval(x - sz, y - sz, x + sz, y + sz, fill=p["color"], outline="", stipple="gray12")
             else:  # Stars
                 canvas.create_oval(x, y, x + sz, y + sz, fill=p["color"], outline="")
 

@@ -165,6 +165,8 @@ class VisionDriveAIApp(ctk.CTk):
         # Background particles canvas (weather backing overlay)
         self.bg_canvas = ctk.CTkCanvas(self, bg="#030308", highlightthickness=0)
         self.bg_canvas.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+        self.last_bg_size = (0, 0)
+        self.last_bg_color = None
 
         # Start with Splash Screen
         self.splash = SplashScreen(self, on_loaded_callback=self.show_login_screen)
@@ -791,10 +793,31 @@ class VisionDriveAIApp(ctk.CTk):
         
         # Repaint dynamic weather backgrounds
         if hasattr(self, "bg_canvas") and self.bg_canvas is not None:
-            self.bg_canvas.delete("all")
+            w = self.winfo_width()
+            h = self.winfo_height()
             c_start = weather_manager.get_color("bg_start")
-            self.bg_canvas.create_rectangle(0, 0, self.winfo_width(), self.winfo_height(), fill=c_start, outline="")
-            weather_manager.draw(self.bg_canvas, self.winfo_width(), self.winfo_height())
+            
+            size_changed = (self.last_bg_size != (w, h))
+            color_changed = (self.last_bg_color != c_start)
+            in_transition = (weather_manager.transition_t < 1.0 or weather_manager.lightning_flash > 0.0)
+            is_drive_page = (self.current_page_name == "drive")
+            
+            if is_drive_page:
+                # In drive screen, particles are covered anyway. Disable them completely to maximize gameplay performance.
+                # Only redraw the static background rect if window size or color has transitioned.
+                if size_changed or color_changed or in_transition:
+                    self.bg_canvas.delete("all")
+                    self.bg_canvas.create_rectangle(0, 0, w, h, fill=c_start, outline="")
+                    self.last_bg_size = (w, h)
+                    self.last_bg_color = c_start
+            else:
+                # Other screens: draw weather particles normally, but avoid redrawing if nothing changed and not in transition
+                # Since stars/particles move, we redraw them if we are drawing particles.
+                self.bg_canvas.delete("all")
+                self.bg_canvas.create_rectangle(0, 0, w, h, fill=c_start, outline="")
+                weather_manager.draw(self.bg_canvas, w, h)
+                self.last_bg_size = (w, h)
+                self.last_bg_color = c_start
 
         # Update Drive Mode HUD layouts if showing
         if self.current_page_name == "drive" and hasattr(self, "current_page_widget") and self.current_page_widget:

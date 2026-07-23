@@ -88,6 +88,12 @@ class RetroRacingGame(ctk.CTkFrame):
         self.tk_image: Optional[ImageTk.PhotoImage] = None
         self.canvas_img_id: Optional[int] = None
         
+        # Performance caches
+        self.cloud_sprites_cache = {}
+        self.light_cone_cache = {}
+        self.smoke_cache = {}
+        self.spark_cache = {}
+        
         # Generate Procedural Sprites
         self._generate_sprites()
 
@@ -333,6 +339,12 @@ class RetroRacingGame(ctk.CTkFrame):
         self.tire_smoke.clear()
         self.nitro_sparks.clear()
         self.explosion_particles.clear()
+        
+        # Clear performance caches to release surface memory
+        self.cloud_sprites_cache.clear()
+        self.light_cone_cache.clear()
+        self.smoke_cache.clear()
+        self.spark_cache.clear()
         
         # Init roadside objects
         self.roadside_objects.clear()
@@ -780,12 +792,17 @@ class RetroRacingGame(ctk.CTkFrame):
         else:  # Night
             sky_top, sky_bot = (3, 3, 10), (12, 18, 45)
 
-        # Draw Sky Gradient
-        for y in range(int(horizon_y)):
-            r = sky_top[0] + (sky_bot[0] - sky_top[0]) * (y / horizon_y)
-            g = sky_top[1] + (sky_bot[1] - sky_top[1]) * (y / horizon_y)
-            b = sky_top[2] + (sky_bot[2] - sky_top[2]) * (y / horizon_y)
-            pygame.draw.line(self.pg_surface, (int(r), int(g), int(b)), (0, y + dy), (self.vw, y + dy))
+        # Draw Sky Gradient (Optimized: render 1-pixel wide line and scale)
+        sky_height = int(horizon_y)
+        grad_surf = pygame.Surface((1, sky_height))
+        for y in range(sky_height):
+            t = y / sky_height
+            r = int(sky_top[0] + (sky_bot[0] - sky_top[0]) * t)
+            g = int(sky_top[1] + (sky_bot[1] - sky_top[1]) * t)
+            b = int(sky_top[2] + (sky_bot[2] - sky_top[2]) * t)
+            grad_surf.set_at((0, y), (r, g, b))
+        scaled_sky = pygame.transform.scale(grad_surf, (self.vw, sky_height))
+        self.pg_surface.blit(scaled_sky, (0, dy))
 
         # Stars in Night Mode
         if self.current_weather == "night":
@@ -805,15 +822,22 @@ class RetroRacingGame(ctk.CTkFrame):
             sun_color = (255, 240, 150) if self.current_weather == "day" else (255, 120, 60)
             pygame.draw.circle(self.pg_surface, sun_color, (280, 45), 18)
 
-        # Volumetric Clouds
-        for cloud in self.clouds:
+        # Volumetric Clouds (Optimized with cloud_sprites_cache)
+        for idx, cloud in enumerate(self.clouds):
             cx_c, cy_c, scale = cloud["x"] + dx, cloud["y"] + dy, cloud["scale"]
             c_color = (240, 240, 250, 160) if self.current_weather != "night" else (40, 50, 70, 140)
-            c_surf = pygame.Surface((int(60 * scale), int(30 * scale)), pygame.SRCALPHA)
-            pygame.draw.ellipse(c_surf, c_color, (0, int(10*scale), int(60*scale), int(20*scale)))
-            pygame.draw.circle(c_surf, c_color, (int(20*scale), int(15*scale)), int(14*scale))
-            pygame.draw.circle(c_surf, c_color, (int(35*scale), int(12*scale)), int(16*scale))
-            self.pg_surface.blit(c_surf, (cx_c, cy_c))
+            
+            cache_key = (idx, self.current_weather)
+            if cache_key not in self.cloud_sprites_cache:
+                w_c = int(60 * scale)
+                h_c = int(30 * scale)
+                c_surf = pygame.Surface((w_c, h_c), pygame.SRCALPHA)
+                pygame.draw.ellipse(c_surf, c_color, (0, int(10*scale), int(60*scale), int(20*scale)))
+                pygame.draw.circle(c_surf, c_color, (int(20*scale), int(15*scale)), int(14*scale))
+                pygame.draw.circle(c_surf, c_color, (int(35*scale), int(12*scale)), int(16*scale))
+                self.cloud_sprites_cache[cache_key] = c_surf
+            
+            self.pg_surface.blit(self.cloud_sprites_cache[cache_key], (cx_c, cy_c))
 
         # Distant Parallax Mountain Silhouette
         parallax_shift = -(self.player_x - 180.0) * 0.2
@@ -903,11 +927,20 @@ class RetroRacingGame(ctk.CTkFrame):
             scaled_sprite = pygame.transform.scale(sprite, (w_sc, h_sc))
             self.pg_surface.blit(scaled_sprite, (rx, ry - h_sc))
 
-            # Light Cone for Streetlights at Night
+            # Light Cone for Streetlights at Night (Optimized with light_cone_cache)
             if r_obj["type"] == "light_pole" and self.current_weather in ("night", "rain"):
-                light_cone = pygame.Surface((int(40 * scale), int(60 * scale)), pygame.SRCALPHA)
-                pygame.draw.polygon(light_cone, (255, 255, 180, 45), [(int(20*scale), 0), (0, int(60*scale)), (int(40*scale), int(60*scale))])
-                self.pg_surface.blit(light_cone, (rx - 10 * scale, ry))
+                rounded_scale = round(scale, 2)
+                if rounded_scale not in self.light_cone_cache:
+                    w_lc = int(40 * rounded_scale)
+                    h_lc = int(60 * rounded_scale)
+                    light_cone = pygame.Surface((w_lc, h_lc), pygame.SRCALPHA)
+                    pygame.draw.polygon(light_cone, (255, 255, 180, 45), [
+                        (int(20 * rounded_scale), 0), 
+                        (0, int(60 * rounded_scale)), 
+                        (int(40 * rounded_scale), int(60 * rounded_scale))
+                    ])
+                    self.light_cone_cache[rounded_scale] = light_cone
+                self.pg_surface.blit(self.light_cone_cache[rounded_scale], (rx - 10 * scale, ry))
 
         # 4. Obstacle Traffic (Cars, Buses, Trucks) with True Perspective Projection
         for obs in self.obstacles:
@@ -932,11 +965,17 @@ class RetroRacingGame(ctk.CTkFrame):
             pygame.draw.ellipse(self.pg_surface, (5, 5, 10, 130), (ox, oy + scaled_h - int(6 * scale), scaled_w, int(10 * scale)))
             self.pg_surface.blit(scaled_sprite, (ox, oy))
 
-        # 5. Tire Smoke Particles
+        # 5. Tire Smoke Particles (Optimized with smoke_cache)
         for sm in self.tire_smoke:
-            sm_surf = pygame.Surface((int(sm["size"]*2), int(sm["size"]*2)), pygame.SRCALPHA)
-            pygame.draw.circle(sm_surf, (220, 220, 230, max(0, int(sm["alpha"]))), (int(sm["size"]), int(sm["size"])), int(sm["size"]))
-            self.pg_surface.blit(sm_surf, (sm["x"] + dx - sm["size"], sm["y"] + dy - sm["size"]))
+            sz_int = int(sm["size"])
+            alpha_val = max(0, int(sm["alpha"]))
+            alpha_rounded = (alpha_val // 10) * 10
+            cache_key = (sz_int, alpha_rounded)
+            if cache_key not in self.smoke_cache:
+                sm_surf = pygame.Surface((sz_int * 2, sz_int * 2), pygame.SRCALPHA)
+                pygame.draw.circle(sm_surf, (220, 220, 230, alpha_rounded), (sz_int, sz_int), sz_int)
+                self.smoke_cache[cache_key] = sm_surf
+            self.pg_surface.blit(self.smoke_cache[cache_key], (sm["x"] + dx - sz_int, sm["y"] + dy - sz_int))
 
         # 6. Player Sports Car (With Dynamic Steering Tilt & Wheel Rotation)
         px, py = self.player_x + dx, self.player_y + dy
@@ -957,13 +996,17 @@ class RetroRacingGame(ctk.CTkFrame):
             pygame.draw.polygon(beam_surf, (255, 240, 180, 50), [(50, 0), (0, 120), (100, 120)])
             self.pg_surface.blit(beam_surf, (px + self.player_width/2.0 - 50, py - 110))
 
-        # 7. Particle Effects (Nitro Flames & Rain Splashes & Crash Shrapnel)
+        # 7. Particle Effects (Nitro Flames & Rain Splashes & Crash Shrapnel) (Optimized with spark_cache)
         for p in self.nitro_sparks:
             alpha = int(p["life"] * 255)
-            color = p["color"] + (alpha,)
-            p_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
-            pygame.draw.circle(p_surf, color, (3, 3), 3)
-            self.pg_surface.blit(p_surf, (p["x"] + dx - 3, p["y"] + dy - 3))
+            alpha_rounded = (alpha // 15) * 15
+            color_rgb = p["color"]
+            cache_key = (color_rgb, alpha_rounded)
+            if cache_key not in self.spark_cache:
+                p_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
+                pygame.draw.circle(p_surf, color_rgb + (alpha_rounded,), (3, 3), 3)
+                self.spark_cache[cache_key] = p_surf
+            self.pg_surface.blit(self.spark_cache[cache_key], (p["x"] + dx - 3, p["y"] + dy - 3))
 
         # Rain Drops & Splashes
         if self.current_weather == "rain":
@@ -1051,17 +1094,23 @@ class RetroRacingGame(ctk.CTkFrame):
         try:
             if not self.winfo_exists():
                 return
-            raw_data = pygame.image.tostring(self.pg_surface, "RGBA")
+            if hasattr(pygame.image, "tobytes"):
+                raw_data = pygame.image.tobytes(self.pg_surface, "RGBA")
+            else:
+                raw_data = pygame.image.tostring(self.pg_surface, "RGBA")
             pil_img = Image.frombytes("RGBA", (self.vw, self.vh), raw_data)
             
             cw = max(100, self.canvas.winfo_width())
             ch = max(100, self.canvas.winfo_height())
             if cw != self.vw or ch != self.vh:
-                pil_img = pil_img.resize((cw, ch), Image.Resampling.BILINEAR)
+                pil_img = pil_img.resize((cw, ch), Image.Resampling.NEAREST)
 
             self.tk_image = ImageTk.PhotoImage(pil_img)
-            self.canvas.delete("all")
-            self.canvas.create_image(0, 0, image=self.tk_image, anchor="nw")
+            if self.canvas_img_id is None or self.canvas_img_id not in self.canvas.find_all():
+                self.canvas.delete("all")
+                self.canvas_img_id = self.canvas.create_image(0, 0, image=self.tk_image, anchor="nw")
+            else:
+                self.canvas.itemconfig(self.canvas_img_id, image=self.tk_image)
         except Exception as e:
             logger.debug(f"Error converting Pygame surface to canvas: {e}")
             
